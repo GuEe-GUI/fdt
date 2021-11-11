@@ -38,4 +38,4 @@ RT-Thread online packages
 ## 5、联系方式
 
 * 维护：GuEe-GUI
-* 主页：https://github.com/GuEe-GUI/fdt
+* 主页：https://gitee.com/GuEe_GUI/fdt
