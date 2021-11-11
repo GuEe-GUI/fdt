@@ -3,10 +3,12 @@
 
 int fdt_test()
 {
-    if (fdt_load_from_fs("vexpress-v2p-ca9.dtb") == FDT_LOAD_OK)
+    void *fdt;
+
+    if ((fdt = fdt_load_from_fs("vexpress-v2p-ca9.dtb")) != RT_NULL)
     {
-        struct dtb_node *dtb_node_list = (struct dtb_node *)rt_malloc(sizeof(struct dtb_node));
-        if (dtb_node_list != RT_NULL && fdt_get_dtb_list(dtb_node_list) == RT_EOK)
+        struct dtb_node *dtb_node_list =  fdt_get_dtb_list(fdt);
+        if (dtb_node_list != RT_NULL)
         {
             struct dtb_node *serial0 = fdt_get_dtb_node_by_path(dtb_node_list, "/smb@4000000/motherboard/iofpga@7,00000000/uart@9000");
             struct dtb_node *cpu = fdt_get_dtb_node_by_path(dtb_node_list, "/cpus");
@@ -14,7 +16,7 @@ int fdt_test()
 
             if (serial0 != RT_NULL)
             {
-                int property_size;
+                rt_size_t property_size;
                 rt_uint32_t u32_value;
                 rt_uint32_t *u32_ptr;
                 char *str_ptr;
@@ -59,15 +61,14 @@ int fdt_test()
                     rt_kprintf("name = %s, lable = %s\n", user->name, fdt_get_dtb_node_property(user, "label", RT_NULL));
                 }
             }
-
-            fdt_free_dtb_list(dtb_node_list);
         }
+        fdt_free_dtb_list(dtb_node_list);
     }
 
-    if (fdt_load_from_fs("bcm2711-rpi-4-b.dtb") == FDT_LOAD_OK)
+    if ((fdt = fdt_load_from_fs("bcm2711-rpi-4-b.dtb")) != RT_NULL)
     {
-        struct dtb_node *dtb_node_list = (struct dtb_node *)rt_malloc(sizeof(struct dtb_node));
-        if (dtb_node_list != RT_NULL && fdt_get_dtb_list(dtb_node_list) == RT_EOK)
+        struct dtb_node *dtb_node_list =  fdt_get_dtb_list(fdt);
+        if (dtb_node_list != RT_NULL)
         {
             struct dtb_node *bt_pins;
             int memreserve_size;
@@ -98,7 +99,7 @@ int fdt_test()
 
             if (bt_pins != RT_NULL)
             {
-                int property_size;
+                rt_size_t property_size;
                 rt_uint8_t u8_value;
                 rt_uint8_t *u8_ptr;
 
@@ -113,9 +114,8 @@ int fdt_test()
                 }
                 rt_kputs("\b]\n");
             }
-
-            fdt_free_dtb_list(dtb_node_list);
         }
+        fdt_free_dtb_list(dtb_node_list);
     }
     return 0;
 }

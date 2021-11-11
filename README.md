@@ -23,7 +23,7 @@ fdt package 遵循 GPL-3.0 许可，详见 LICENSE 文件。
 ```
 RT-Thread online packages
     tools packages --->
-        [*] DeviceTree package
+        [*] FDT package
 ```
 
 ## 3、使用 fdt
@@ -33,7 +33,7 @@ RT-Thread online packages
 * 更多文档位于 [`/docs`](/docs) 下，使用前 **务必查看**
 
 ## 4、注意事项
-如果发生`libfdt`库冲突，在`rt-boot/SConscript`中注释`Glob('utils/libfdt/*.c')`即可
+如果发生`libfdt`库冲突，在package管理菜单中取消选择`Enable libfdt`
 
 ## 5、联系方式
 
