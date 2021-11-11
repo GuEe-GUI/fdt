@@ -2,9 +2,7 @@ from building import *
 
 cwd     = GetCurrentDir()
 src     = Glob('*.c')
-
-if GetDepend(['FDT_USING_LIBFDT']):
-	src += Glob('libfdt/*.c')
+src    += Glob('libfdt/*.c')
 
 CPPPATH = [cwd + '/../inc']
 

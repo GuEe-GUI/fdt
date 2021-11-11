@@ -7,8 +7,6 @@ cwd = GetCurrentDir()
 objs = []
 list = os.listdir(cwd)
 
-AddDepend("FDT_USING_LIBFDT")
-
 if GetDepend('PKG_USING_FDT'):
     for d in list:
         path = os.path.join(cwd, d)

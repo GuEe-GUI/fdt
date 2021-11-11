@@ -33,9 +33,9 @@ RT-Thread online packages
 * 更多文档位于 [`/docs`](/docs) 下，使用前 **务必查看**
 
 ## 4、注意事项
-如果发生`libfdt`库冲突，在`fdt/SConscript`中注释`AddDepend("FDT_USING_LIBFDT")`即可
+如果发生`libfdt`库冲突，在`rt-boot/SConscript`中注释`Glob('utils/libfdt/*.c')`即可
 
 ## 5、联系方式
 
 * 维护：GuEe-GUI
-* 主页：https://gitee.com/GuEe_GUI/fdt
+* 主页：https://github.com/GuEe-GUI/fdt

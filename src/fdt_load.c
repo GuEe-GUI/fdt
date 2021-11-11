@@ -4,24 +4,22 @@
 #include "libfdt/libfdt.h"
 #include "fdt.h"
 
-extern void *fdt;
+extern rt_err_t fdt_exec_status;
 
-rt_inline rt_err_t fdt_check()
+rt_inline rt_bool_t fdt_check(void *fdt)
 {
-    return fdt_check_header(fdt) == 0 ? FDT_LOAD_OK : FDT_LOAD_ERROR;
+    return fdt_check_header(fdt) == 0 ? RT_TRUE : RT_FALSE;
 }
 
-rt_err_t fdt_load_from_fs(char *dtb_filename)
+void *fdt_load_from_fs(char *dtb_filename)
 {
-    rt_base_t level = rt_hw_interrupt_disable();
-
-    int fd = -1;
+    void *fdt = RT_NULL;
     rt_size_t dtb_sz;
-    rt_err_t status = FDT_LOAD_OK;
+    int fd = -1;
 
     if (dtb_filename == RT_NULL)
     {
-        status = FDT_LOAD_EMPTY;
+        fdt_exec_status = FDT_RET_GET_EMPTY;
         goto end;
     }
 
@@ -29,39 +27,28 @@ rt_err_t fdt_load_from_fs(char *dtb_filename)
 
     if (fd == -1)
     {
-        status = FDT_LOAD_EMPTY;
+        rt_kprintf("File `%s' not found.\n", dtb_filename);
+        fdt_exec_status = FDT_RET_GET_EMPTY;
         goto end;
     }
 
     dtb_sz = lseek(fd, 0, SEEK_END);
+
     if (dtb_sz > 0)
     {
-        /* if was loaded before */
-        if (fdt != RT_NULL)
+        if ((fdt = (struct fdt_header *)rt_malloc(sizeof(rt_uint8_t) * dtb_sz)) == RT_NULL)
         {
-            rt_free(fdt);
-        }
-
-        fdt = (struct fdt_header *)rt_malloc(sizeof(rt_uint8_t) * dtb_sz);
-
-        if (fdt == RT_NULL)
-        {
-            status = FDT_NO_MEMORY;
+            fdt_exec_status = FDT_RET_NO_MEMORY;
             goto end;
         }
 
         lseek(fd, 0, SEEK_SET);
         read(fd, fdt, sizeof(rt_uint8_t) * dtb_sz);
 
-        if ((status = fdt_check()) != FDT_LOAD_OK)
+        if (fdt_check(fdt) == RT_FALSE)
         {
             rt_free(fdt);
         }
-    }
-    else
-    {
-        status = FDT_LOAD_ERROR;
-        goto end;
     }
 
 end:
@@ -69,27 +56,47 @@ end:
     {
         close(fd);
     }
-    rt_hw_interrupt_enable(level);
 
-    return status;
+    return fdt;
 }
 
-rt_err_t fdt_load_from_memory(void *dtb_ptr)
+void *fdt_load_from_memory(void *dtb_ptr, rt_bool_t is_clone)
 {
+    void *fdt = RT_NULL;
+
     if (dtb_ptr == RT_NULL)
     {
-        return FDT_LOAD_EMPTY;
+        fdt_exec_status = FDT_RET_GET_EMPTY;
+        goto end;
     }
 
-    fdt = dtb_ptr;
-
-    if (fdt_check() != FDT_LOAD_OK)
+    if (fdt_check(dtb_ptr) == RT_FALSE)
     {
+        fdt_exec_status = FDT_RET_GET_EMPTY;
         fdt = RT_NULL;
-        return FDT_LOAD_ERROR;
+        goto end;
+    }
+
+    if (is_clone)
+    {
+        rt_size_t dtb_sz = fdt_totalsize(dtb_ptr);
+        if (dtb_sz > 0)
+        {
+            if ((fdt = rt_malloc(dtb_sz)) != RT_NULL)
+            {
+                rt_memcpy(fdt, dtb_ptr, dtb_sz);
+            }
+            else
+            {
+                fdt_exec_status = FDT_RET_NO_MEMORY;
+            }
+        }
     }
     else
     {
-        return FDT_LOAD_OK;
+        fdt = dtb_ptr;
     }
+
+end:
+    return fdt;
 }

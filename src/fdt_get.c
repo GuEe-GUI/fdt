@@ -1,47 +1,49 @@
 #include "libfdt/libfdt.h"
 #include "fdt.h"
 
-#define DTB_ALL_NODES_PATH_SIZE (32 * 1024)
-
-/* we maybe use to booting linux or change the dtb data so set it as a global variable */
-void *fdt = RT_NULL;
-static rt_err_t pub_status;
-
 static struct
 {
     const char *ptr;
     const char *end;
     char *cur;
 } paths_buf = {RT_NULL, RT_NULL};
+static void *current_fdt;
+
+rt_err_t fdt_exec_status = FDT_RET_GET_OK;
+
+rt_err_t fdt_get_exec_status()
+{
+    return fdt_exec_status;
+}
 
 static rt_err_t _fdt_get_dtb_properties_list(struct dtb_property *dtb_property, rt_off_t node_off)
 {
-    /* caller alrealy checked fdt */
-    rt_off_t property_off = fdt_first_property_offset(fdt, node_off);
+    /* caller alrealy checked current_fdt */
+    rt_off_t property_off = fdt_first_property_offset(current_fdt, node_off);
     struct fdt_property *fdt_property;
 
     if (property_off < 0)
     {
-        return FDT_GET_EMPTY;
+        return FDT_RET_GET_EMPTY;
     }
 
     for (;;)
     {
-        fdt_property = (struct fdt_property *)fdt_get_property_by_offset(fdt, property_off, &dtb_property->size);
+        fdt_property = (struct fdt_property *)fdt_get_property_by_offset(current_fdt, property_off, &dtb_property->size);
         if (fdt_property != RT_NULL)
         {
-            dtb_property->name = fdt_string(fdt, fdt32_to_cpu(fdt_property->nameoff));
+            dtb_property->name = fdt_string(current_fdt, fdt32_to_cpu(fdt_property->nameoff));
             dtb_property->value = fdt_property->data;
             dtb_property->size = fdt32_to_cpu(fdt_property->len);
         }
 
-        property_off = fdt_next_property_offset(fdt, property_off);
+        property_off = fdt_next_property_offset(current_fdt, property_off);
         if (property_off >= 0)
         {
             dtb_property->next = (struct dtb_property *)rt_malloc(sizeof(struct dtb_property));
             if (dtb_property->next == RT_NULL)
             {
-                return FDT_NO_MEMORY;
+                return FDT_RET_NO_MEMORY;
             }
             dtb_property = dtb_property->next;
         }
@@ -52,7 +54,7 @@ static rt_err_t _fdt_get_dtb_properties_list(struct dtb_property *dtb_property, 
         }
     }
 
-    return FDT_GET_OK;
+    return FDT_RET_GET_OK;
 }
 
 static rt_err_t _fdt_get_dtb_nodes_list(struct dtb_node *dtb_node_head, struct dtb_node *dtb_node, const char *pathname)
@@ -62,22 +64,22 @@ static rt_err_t _fdt_get_dtb_nodes_list(struct dtb_node *dtb_node_head, struct d
     int pathname_sz;
     int node_name_sz;
 
-    /* caller alrealy checked fdt */
-    if ((root_off = fdt_path_offset(fdt, pathname)) >= 0)
+    /* caller alrealy checked current_fdt */
+    if ((root_off = fdt_path_offset(current_fdt, pathname)) >= 0)
     {
         pathname_sz = rt_strlen(pathname);
-        node_off = fdt_first_subnode(fdt, root_off);
+        node_off = fdt_first_subnode(current_fdt, root_off);
 
         if (node_off < 0)
         {
-            return FDT_GET_EMPTY;
+            return FDT_RET_GET_EMPTY;
         }
 
         for (;;)
         {
             dtb_node->parent = dtb_node_head;
             dtb_node->sibling = RT_NULL;
-            dtb_node->name = fdt_get_name(fdt, node_off, &node_name_sz);
+            dtb_node->name = fdt_get_name(current_fdt, node_off, &node_name_sz);
 
             /* parent_path + name + '/' + '\0' */
             if (paths_buf.cur + pathname_sz + node_name_sz + 2 < paths_buf.end)
@@ -93,48 +95,48 @@ static rt_err_t _fdt_get_dtb_nodes_list(struct dtb_node *dtb_node_head, struct d
             else
             {
                 dtb_node->path = RT_NULL;
-                rt_kprintf("\033[31m\rERROR: `DTB_ALL_NODES_PATH_SIZE' = %d bytes is configured too low.\033[0m\n", DTB_ALL_NODES_PATH_SIZE);
-                return FDT_NO_MEMORY;
+                rt_kprintf("\033[31m\rERROR: `FDT_DTB_ALL_NODES_PATH_SIZE' = %d bytes is configured too low.\033[0m\n", FDT_DTB_ALL_NODES_PATH_SIZE);
+                return FDT_RET_NO_MEMORY;
             }
 
-            dtb_node->handle = fdt_get_phandle(fdt, node_off);
+            dtb_node->handle = fdt_get_phandle(current_fdt, node_off);
             dtb_node->properties = (struct dtb_property *)rt_malloc(sizeof(struct dtb_property));
             dtb_node->child = (struct dtb_node *)rt_malloc(sizeof(struct dtb_node));
 
             if (dtb_node->properties == RT_NULL || dtb_node->child == RT_NULL)
             {
-                return FDT_NO_MEMORY;
+                return FDT_RET_NO_MEMORY;
             }
 
-            pub_status = _fdt_get_dtb_properties_list(dtb_node->properties, node_off);
-            if (pub_status == FDT_GET_EMPTY)
+            fdt_exec_status = _fdt_get_dtb_properties_list(dtb_node->properties, node_off);
+            if (fdt_exec_status == FDT_RET_GET_EMPTY)
             {
                 rt_free(dtb_node->properties);
                 dtb_node->properties = RT_NULL;
             }
-            else if (pub_status != FDT_GET_OK)
+            else if (fdt_exec_status != FDT_RET_GET_OK)
             {
-                return pub_status;
+                return fdt_exec_status;
             }
 
-            pub_status = _fdt_get_dtb_nodes_list(dtb_node, dtb_node->child, dtb_node->path);
-            if (pub_status == FDT_GET_EMPTY)
+            fdt_exec_status = _fdt_get_dtb_nodes_list(dtb_node, dtb_node->child, dtb_node->path);
+            if (fdt_exec_status == FDT_RET_GET_EMPTY)
             {
                 rt_free(dtb_node->child);
                 dtb_node->child = RT_NULL;
             }
-            else if (pub_status != FDT_GET_OK)
+            else if (fdt_exec_status != FDT_RET_GET_OK)
             {
-                return pub_status;
+                return fdt_exec_status;
             }
 
-            node_off = fdt_next_subnode(fdt, node_off);
+            node_off = fdt_next_subnode(current_fdt, node_off);
             if (node_off >= 0)
             {
                 dtb_node->sibling = (struct dtb_node *)rt_malloc(sizeof(struct dtb_node));
                 if (dtb_node->sibling == RT_NULL)
                 {
-                    return FDT_NO_MEMORY;
+                    return FDT_RET_NO_MEMORY;
                 }
                 dtb_node = dtb_node->sibling;
             }
@@ -145,38 +147,46 @@ static rt_err_t _fdt_get_dtb_nodes_list(struct dtb_node *dtb_node_head, struct d
         }
     }
 
-    return FDT_GET_OK;
+    return FDT_RET_GET_OK;
 }
 
-rt_err_t fdt_get_dtb_list(struct dtb_node *dtb_node_head)
+struct dtb_node *fdt_get_dtb_list(void *fdt)
 {
     int root_off;
+    struct dtb_node *dtb_node_head = RT_NULL;
 
     if (fdt == RT_NULL)
     {
-        return FDT_NO_LOADED;
+        fdt_exec_status = FDT_RET_NO_LOADED;
+        goto fail;
     }
-    if (dtb_node_head == RT_NULL)
+
+    current_fdt = fdt;
+
+    if ((dtb_node_head = (struct dtb_node *)rt_malloc(sizeof(struct dtb_node))) == RT_NULL)
     {
-        return FDT_GET_EMPTY;
+        fdt_exec_status = FDT_RET_NO_MEMORY;
+        goto fail;
     }
+
     if (paths_buf.ptr == RT_NULL)
     {
-        paths_buf.ptr = rt_malloc(DTB_ALL_NODES_PATH_SIZE);
+        paths_buf.ptr = rt_malloc(FDT_DTB_ALL_NODES_PATH_SIZE);
         if (paths_buf.ptr == RT_NULL)
         {
-            return FDT_NO_MEMORY;
+            fdt_exec_status = FDT_RET_NO_MEMORY;
+            goto fail;
         }
         paths_buf.cur = (char *)paths_buf.ptr;
-        paths_buf.end = (char *)(paths_buf.ptr + DTB_ALL_NODES_PATH_SIZE);
+        paths_buf.end = (char *)(paths_buf.ptr + FDT_DTB_ALL_NODES_PATH_SIZE);
     }
 
     root_off = fdt_path_offset(fdt, "/");
 
-    dtb_node_head->header = rt_malloc(sizeof(struct dtb_header));
-    if (dtb_node_head->header == RT_NULL)
+    if ((dtb_node_head->header = rt_malloc(sizeof(struct dtb_header))) == RT_NULL)
     {
-        return FDT_NO_MEMORY;
+        fdt_exec_status = FDT_RET_NO_MEMORY;
+        goto fail;
     }
     else
     {
@@ -194,7 +204,8 @@ rt_err_t fdt_get_dtb_list(struct dtb_node *dtb_node_head)
             ((struct dtb_header *)dtb_node_head->header)->memreserve = rt_malloc(sizeof(struct dtb_memreserve) * memreserve_sz);
             if (dtb_node_head->header->memreserve == RT_NULL)
             {
-                return FDT_NO_MEMORY;
+                fdt_exec_status = FDT_RET_NO_MEMORY;
+                goto fail;
             }
             for (i = 0; i < memreserve_sz; ++i)
             {
@@ -220,22 +231,33 @@ rt_err_t fdt_get_dtb_list(struct dtb_node *dtb_node_head)
 
     if (dtb_node_head->properties == RT_NULL || dtb_node_head->child == RT_NULL)
     {
-        return FDT_NO_MEMORY;
+        fdt_exec_status = FDT_RET_NO_MEMORY;
+        goto fail;
     }
 
-    pub_status = _fdt_get_dtb_properties_list(dtb_node_head->properties, root_off);
-    if (pub_status != FDT_GET_OK)
+    if ((fdt_exec_status = _fdt_get_dtb_properties_list(dtb_node_head->properties, root_off)) != FDT_RET_GET_OK)
     {
-        return pub_status;
+        goto fail;
     }
 
-    pub_status = _fdt_get_dtb_nodes_list(dtb_node_head, dtb_node_head->child, dtb_node_head->path);
+    if ((fdt_exec_status = _fdt_get_dtb_nodes_list(dtb_node_head, dtb_node_head->child, dtb_node_head->path)) != FDT_RET_GET_OK)
+    {
+        goto fail;
+    }
 
     /* paths_buf.ptr addr save in the dtb_node_head's path */
     paths_buf.ptr = RT_NULL;
     paths_buf.cur = RT_NULL;
 
-    return pub_status;
+    return dtb_node_head;
+
+fail:
+    if (dtb_node_head != RT_NULL)
+    {
+        fdt_free_dtb_list(dtb_node_head);
+    }
+
+    return RT_NULL;
 }
 
 static void _fdt_free_dtb_node(struct dtb_node *dtb_node)
@@ -270,11 +292,20 @@ void fdt_free_dtb_list(struct dtb_node *dtb_node_head)
     }
 
     /* only root node can free all path buffer */
-    if (dtb_node_head->parent == RT_NULL || !rt_strcmp(dtb_node_head->path, "/"))
+    if (dtb_node_head->parent == RT_NULL || (dtb_node_head->path != RT_NULL && !rt_strcmp(dtb_node_head->path, "/")))
     {
-        rt_free((void *)dtb_node_head->path);
-        rt_free((void *)dtb_node_head->header->memreserve);
-        rt_free((void *)dtb_node_head->header);
+        if (dtb_node_head->path != RT_NULL)
+        {
+            rt_free((void *)dtb_node_head->path);
+        }
+        if (dtb_node_head->header != RT_NULL)
+        {
+            if (dtb_node_head->header->memreserve != RT_NULL)
+            {
+                rt_free((void *)dtb_node_head->header->memreserve);
+            }
+            rt_free((void *)dtb_node_head->header);
+        }
     }
 
     _fdt_free_dtb_node(dtb_node_head);
@@ -553,6 +584,7 @@ struct dtb_node *fdt_get_dtb_node_by_path(struct dtb_node *dtb_node, const char 
      */
     node_name = &((char *)pathname)[(pathname_sz - 1) - (&pathname_clone[i] - node_name)];
     rt_free(pathname_clone);
+
     while (dtb_node != RT_NULL)
     {
         if (!rt_strcmp(dtb_node->name, node_name))
@@ -661,7 +693,7 @@ void fdt_get_dtb_node_cells(struct dtb_node *dtb_node, int *addr_cells, int *siz
     }
 }
 
-void *fdt_get_dtb_node_property(struct dtb_node *dtb_node, const char *property_name, int *property_size)
+void *fdt_get_dtb_node_property(struct dtb_node *dtb_node, const char *property_name, rt_size_t *property_size)
 {
     if (dtb_node != RT_NULL && property_name != RT_NULL)
     {
@@ -722,6 +754,28 @@ rt_bool_t fdt_get_dtb_node_status(struct dtb_node *dtb_node)
     return RT_FALSE;
 }
 
+rt_bool_t fdt_get_dtb_node_compatible_match(struct dtb_node *dtb_node, char **compatibles)
+{
+    if (dtb_node != RT_NULL)
+    {
+        while (*compatibles != RT_NULL)
+        {
+            char *str_ptr;
+            rt_size_t prop_sz;
+            for_each_property_string(dtb_node, "compatible", str_ptr, prop_sz)
+            {
+                if (!rt_strcmp(*compatibles, str_ptr))
+                {
+                    return RT_TRUE;
+                }
+            }
+            ++compatibles;
+        }
+    }
+
+    return RT_FALSE;
+}
+
 char *fdt_get_dtb_string_list_value(void *value, int size, int index)
 {
     int i = 0;
@@ -760,14 +814,10 @@ char *fdt_get_dtb_string_list_value_next(void *value, void *end)
 
 rt_uint32_t fdt_get_dtb_cell_value(void *value)
 {
-    fdt32_t *cell = (fdt32_t *)value;
-
-    return fdt32_to_cpu(*cell);
+    return fdt32_to_cpu(*(fdt32_t *)value);
 }
 
 rt_uint8_t fdt_get_dtb_byte_value(void *value)
 {
-    rt_uint8_t *byte = (rt_uint8_t *)value;
-
-    return *byte;
+    return *(rt_uint8_t *)value;
 }
