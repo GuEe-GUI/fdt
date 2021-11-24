@@ -463,6 +463,26 @@ void fdt_get_dts_dump(struct dtb_node *dtb_node_head)
     }
 }
 
+static void _fdt_get_enum_dtb_node(struct dtb_node *dtb_node, void (callback(struct dtb_node *dtb_node)))
+{
+    while (dtb_node != RT_NULL)
+    {
+        callback(dtb_node);
+        _fdt_get_enum_dtb_node(dtb_node->child, callback);
+        dtb_node = dtb_node->sibling;
+    }
+}
+
+void fdt_get_enum_dtb_node(struct dtb_node *dtb_node_head, void (callback(struct dtb_node *dtb_node)))
+{
+    if (dtb_node_head == RT_NULL || callback == RT_NULL)
+    {
+        return;
+    }
+
+    _fdt_get_enum_dtb_node(dtb_node_head, callback);
+}
+
 struct dtb_node *fdt_get_dtb_node_by_name_DFS(struct dtb_node *dtb_node, const char *nodename)
 {
     struct dtb_node *dtb_node_child;

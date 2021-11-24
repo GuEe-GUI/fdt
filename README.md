@@ -23,7 +23,7 @@ fdt package 遵循 GPL-3.0 许可，详见 LICENSE 文件。
 ```
 RT-Thread online packages
     tools packages --->
-        [*] FDT package
+        [*] Device Tree package in RT-Thread
 ```
 
 ## 3、使用 fdt

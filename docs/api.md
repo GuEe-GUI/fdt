@@ -127,7 +127,7 @@ void fdt_free_dtb_list(struct dtb_node *dtb_node_head)
 | **返回** | **描述** |
 |无返回值 | 无描述 |
 
-示例
+示例：加载设备树
 
 ```c
 #include <rtthread.h>
@@ -165,6 +165,43 @@ void fdt_get_dts_dump(struct dtb_node *dtb_node_head)
 |dtb_node_head | 设备节点树头节点 |
 | **返回** | **描述** |
 |无返回值 | 无描述 |
+
+## 遍历设备节点树并使用程序定义的回调函数
+```c
+void fdt_get_enum_dtb_node(struct dtb_node *dtb_node_head, void (*callback(struct dtb_node *dtb_node)))
+```
+
+| 参数 | 描述 |
+|:------------------|:------------------------------------|
+|dtb_node_head | 设备节点树头节点 |
+|callback | 程序定义的回调函数 |
+| **返回** | **描述** |
+|无返回值 | 无描述 |
+
+示例：遍历设备树节点，并打印每个节点名称
+
+```c
+#include <rtthread.h>
+#include <fdt.h>
+
+void callback(struct dtb_node *node)
+{
+    rt_kprintf("this node's name is %s\n", node->name);
+}
+
+int main()
+{
+    /* loaded dtb_node */
+    extern struct dtb_node *dtb_node_list;
+
+    if (dtb_node_list != RT_NULL)
+    {
+        fdt_get_enum_dtb_node(dtb_node_list, callback);
+    }
+
+    return 0;
+}
+```
 
 ## 通过节点名称查找节点
 ```c
@@ -240,6 +277,8 @@ void *fdt_get_dtb_node_property(struct dtb_node *dtb_node, const char *property_
 | **返回** | **描述** |
 |void * | 无描述 |
 |RT_NULL | 该设备树没有该属性 |
+
+读取的值为在设备树中存储的值，CPU小端模式下可能需要使用其他API进行转换才是正确的值
 
 ## 读取预留内存信息
 ```c

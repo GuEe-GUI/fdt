@@ -71,6 +71,7 @@ rt_err_t fdt_get_exec_status();
 struct dtb_node *fdt_get_dtb_list(void *fdt);
 void fdt_free_dtb_list(struct dtb_node *dtb_node_head);
 void fdt_get_dts_dump(struct dtb_node *dtb_node_head);
+void fdt_get_enum_dtb_node(struct dtb_node *dtb_node_head, void (callback(struct dtb_node *dtb_node)));
 
 struct dtb_node *fdt_get_dtb_node_by_name_DFS(struct dtb_node *dtb_node, const char *nodename);
 struct dtb_node *fdt_get_dtb_node_by_name_BFS(struct dtb_node *dtb_node, const char *nodename);

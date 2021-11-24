@@ -8,5 +8,6 @@
 
 |文件名                             |描述|
 |:-----                             |:----|
+|[examples.md](examples.md)         |示例程序|
 |[version.md](version.md)           |版本信息|
 |[api.md](api.md)                   |API 说明|
