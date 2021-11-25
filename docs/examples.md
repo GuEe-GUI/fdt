@@ -1,6 +1,6 @@
 # fdt示例 #
 
-在`examples`文件夹中存放`bcm2711-rpi-4-b.dtb`和`vexpress-v2p-ca9.dtb`可供测试，如果系统可以从bootloader或其他方式获取到bsp本身，也可以使用修改示例程序进行测试
+在`examples`文件夹中存放`bcm2711-rpi-4-b.dtb`和`vexpress-v2p-ca9.dtb`可供测试，如果系统可以从bootloader或其他方式获取到bsp本身的dtb，也可以通过修改示例程序进行测试
 
 ## fdt_dump
 ```bash
@@ -31,6 +31,7 @@ fdt_dump vexpress-v2p-ca9.dtb
                 i2c0 = "/smb@4000000/motherboard/iofpga@7,00000000/i2c@16000";
                 i2c1 = "/smb@4000000/motherboard/iofpga@7,00000000/i2c@2000";
         };
+
 ...... 省略
 
         hsb@e0000000 {
