@@ -1,5 +1,6 @@
 #include <rthw.h>
-#include <dfs_posix.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 #include "libfdt/libfdt.h"
 #include "fdt.h"
